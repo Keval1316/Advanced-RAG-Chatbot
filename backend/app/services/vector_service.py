@@ -26,22 +26,30 @@ class VectorService:
             try:
                 # Attempt remote connection if not explicit memory mode
                 if settings.QDRANT_HOST and settings.QDRANT_HOST.lower() not in ["memory", "none"]:
-                    client = QdrantClient(
-                        host=settings.QDRANT_HOST,
-                        port=settings.QDRANT_PORT,
-                        api_key=settings.QDRANT_API_KEY if settings.QDRANT_API_KEY else None,
-                        timeout=3.0,
-                        check_compatibility=False
-                    )
+                    if settings.QDRANT_HOST.startswith("http://") or settings.QDRANT_HOST.startswith("https://"):
+                        client = QdrantClient(
+                            url=settings.QDRANT_HOST,
+                            api_key=settings.QDRANT_API_KEY if settings.QDRANT_API_KEY else None,
+                            timeout=10.0,
+                            check_compatibility=False
+                        )
+                    else:
+                        client = QdrantClient(
+                            host=settings.QDRANT_HOST,
+                            port=settings.QDRANT_PORT,
+                            api_key=settings.QDRANT_API_KEY if settings.QDRANT_API_KEY else None,
+                            timeout=10.0,
+                            check_compatibility=False
+                        )
                     # Verify connectivity
                     client.get_collections()
                     self._client = client
-                    logger.info(f"Connected to remote Qdrant at {settings.QDRANT_HOST}:{settings.QDRANT_PORT}")
+                    logger.info(f"Connected to remote Qdrant at {settings.QDRANT_HOST}")
                 else:
                     self._client = QdrantClient(location=":memory:")
                     logger.info("Using in-memory Qdrant instance.")
             except Exception as e:
-                logger.info(f"Could not connect to Qdrant at {settings.QDRANT_HOST}:{settings.QDRANT_PORT}. Using in-memory Qdrant storage.")
+                logger.warning(f"Could not connect to Qdrant at {settings.QDRANT_HOST}: {str(e)}. Using in-memory Qdrant storage.")
                 self._client = QdrantClient(location=":memory:")
 
             self.ensure_collection_exists()
@@ -62,8 +70,31 @@ class VectorService:
                         distance=Distance.COSINE
                     )
                 )
+                logger.info(f"Collection '{col_name}' created successfully.")
+
+            # Ensure payload field indexes exist for multi-tenant payload filtering
+            try:
+                client.create_payload_index(
+                    collection_name=col_name,
+                    field_name="user_id",
+                    field_schema=models.PayloadSchemaType.KEYWORD
+                )
+                client.create_payload_index(
+                    collection_name=col_name,
+                    field_name="knowledge_base_id",
+                    field_schema=models.PayloadSchemaType.KEYWORD
+                )
+                client.create_payload_index(
+                    collection_name=col_name,
+                    field_name="document_id",
+                    field_schema=models.PayloadSchemaType.KEYWORD
+                )
+            except Exception:
+                pass  # Indexes may already exist
+
         except Exception as e:
-            logger.error(f"Error ensuring Qdrant collection: {str(e)}")
+            logger.error(f"Error ensuring Qdrant collection '{col_name}' exists: {str(e)}")
+            raise VectorStoreException(message=f"Vector collection initialization failed: {str(e)}")
 
     def upsert_chunks(
         self,
