@@ -47,6 +47,7 @@ class LLMService:
     _instance = None
     _clients: List[Groq] = []
     _cached_keys: List[str] = []
+    _key_index: int = 0
 
     def __new__(cls):
         if cls._instance is None:
@@ -90,6 +91,15 @@ class LLMService:
         self._cached_keys = keys
         return clients
 
+    def _get_rotated_clients(self) -> List[Groq]:
+        """Returns clients rotated in a round-robin pool so traffic distributes evenly across all keys."""
+        clients = self.get_clients()
+        if not clients:
+            return []
+        idx = self._key_index % len(clients)
+        self._key_index = (self._key_index + 1) % len(clients)
+        return clients[idx:] + clients[:idx]
+
     def generate(
         self,
         prompt: str,
@@ -98,7 +108,7 @@ class LLMService:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None
     ) -> str:
-        clients = self.get_clients()
+        clients = self._get_rotated_clients()
         if not clients:
             return f"Answer based on available knowledge base: {prompt}"
 
@@ -163,10 +173,11 @@ class LLMService:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None
     ) -> str:
-        clients = self.get_clients()
+        clients = self._get_rotated_clients()
         if not clients:
             last_msg = messages[-1]["content"] if messages else ""
             return f"Answer based on context: {last_msg}"
+
 
         target_model = model or settings.GROQ_MODEL
         models_to_try = [target_model] + [m for m in FALLBACK_MODELS if m != target_model]
