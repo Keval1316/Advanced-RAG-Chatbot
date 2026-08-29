@@ -51,5 +51,6 @@ USER user
 # Hugging Face Spaces default port
 EXPOSE 7860
 
-# Start FastAPI application
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "7860"]
+# Start FastAPI application (supports dynamic PORT on Render, HF Spaces, Railway, etc.)
+CMD ["python", "run.py"]
+

@@ -13,5 +13,9 @@ __pycache__
 .coverage
 htmlcov/
 *.log
+*.sqlite3
+*.db
+uploads/
 scratch/
 .system_generated/
+
