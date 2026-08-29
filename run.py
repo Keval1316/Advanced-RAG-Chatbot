@@ -10,22 +10,29 @@ sys.path.insert(0, str(BASE_DIR))
 from backend.app.core.config import settings
 
 def main():
+    port = int(os.environ.get("PORT", settings.BACKEND_PORT))
+    host = "0.0.0.0"
+    is_prod = os.environ.get("APP_ENV") == "production" or bool(os.environ.get("PORT"))
+    reload_flag = False if is_prod else settings.DEBUG
+
     print("=" * 65)
     print(f"🚀 Launching {settings.APP_NAME}")
     print("=" * 65)
-    print(f"🌐 Frontend Web UI       : http://localhost:{settings.BACKEND_PORT}")
-    print(f"📄 Swagger API Docs     : http://localhost:{settings.BACKEND_PORT}/api/v1/docs")
-    print(f"🩺 Health Check Endpoint : http://localhost:{settings.BACKEND_PORT}/health")
-    print(f"📊 Streamlit UI (Option) : http://localhost:{settings.FRONTEND_PORT} (run: streamlit run frontend/app.py)")
+    print(f"🌐 Server binding to     : http://{host}:{port}")
+    print(f"📄 Swagger API Docs     : http://{host}:{port}{settings.API_V1_PREFIX}/docs")
+    print(f"🩺 Health Check Endpoint : http://{host}:{port}/health")
     print("=" * 65)
-    print("Press CTRL+C to stop the server.\n")
+    print("Server ready for incoming connections.\n")
 
     uvicorn.run(
         "backend.app.main:app",
-        host=settings.BACKEND_HOST,
-        port=settings.BACKEND_PORT,
-        reload=settings.DEBUG
+        host=host,
+        port=port,
+        reload=reload_flag,
+        proxy_headers=True,
+        forwarded_allow_ips="*"
     )
 
 if __name__ == "__main__":
     main()
+

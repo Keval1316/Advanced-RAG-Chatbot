@@ -1,5 +1,4 @@
 from typing import List, Tuple
-from sentence_transformers import CrossEncoder
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.schemas.rag import ScoredChunk
@@ -14,10 +13,20 @@ class CrossEncoderReranker:
             cls._instance = super(CrossEncoderReranker, cls).__new__(cls)
         return cls._instance
 
-    def _get_model(self) -> CrossEncoder:
+    def _get_model(self):
         if self._model is None:
-            logger.info(f"Loading Cross-Encoder model: {settings.RERANKER_MODEL}")
-            self._model = CrossEncoder(settings.RERANKER_MODEL)
+            try:
+                from fastembed.rerank.cross_encoder import TextCrossEncoder
+                logger.info("Loading lightweight ONNX Cross-Encoder reranker...")
+                self._model = TextCrossEncoder(model_name="Xenova/ms-marco-MiniLM-L-6-v2")
+            except Exception as e:
+                logger.warning(f"Could not load FastEmbed CrossEncoder ({str(e)}), trying sentence-transformers fallback...")
+                try:
+                    from sentence_transformers import CrossEncoder
+                    self._model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+                except Exception as ex:
+                    logger.error(f"All cross-encoder models failed to load: {str(ex)}")
+                    self._model = None
         return self._model
 
     def rerank(
@@ -35,10 +44,19 @@ class CrossEncoderReranker:
 
         try:
             model = self._get_model()
-            # Only rerank top candidate pool (max 8) to keep CPU latency low (<150ms)
+            if model is None:
+                return chunks[:top_k]
+
             candidate_pool = chunks[:8]
-            pairs = [[query, chunk.text] for chunk in candidate_pool]
-            scores = model.predict(pairs, batch_size=8, show_progress_bar=False)
+            texts = [chunk.text for chunk in candidate_pool]
+
+            # FastEmbed TextCrossEncoder path
+            if hasattr(model, "rerank"):
+                scores = list(model.rerank(query, texts))
+            else:
+                # sentence-transformers predict path
+                pairs = [[query, text] for text in texts]
+                scores = model.predict(pairs, batch_size=8, show_progress_bar=False)
 
             scored_chunks: List[Tuple[float, ScoredChunk]] = []
             for score, chunk in zip(scores, candidate_pool):
@@ -67,12 +85,8 @@ class CrossEncoderReranker:
             return chunks[:top_k]
 
     def warmup(self) -> None:
-        try:
-            model = self._get_model()
-            model.predict([["warmup query", "warmup document text"]], show_progress_bar=False)
-            logger.info("Cross-Encoder reranker warmed up successfully.")
-        except Exception as e:
-            logger.warning(f"Cross-Encoder warmup warning: {str(e)}")
+        pass
 
 
 reranker = CrossEncoderReranker()
+

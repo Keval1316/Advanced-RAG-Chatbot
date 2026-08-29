@@ -20,10 +20,10 @@ alembic>=1.13.2
 # LLM & AI Services
 groq>=0.11.0
 
-# Embeddings, Vector Search & Reranking
+# Embeddings, Vector Search & Reranking (Lightweight ONNX)
 qdrant-client>=1.11.0
 fastembed>=0.3.4
-sentence-transformers>=3.0.1
+
 
 # Document Parsers
 pypdf>=4.3.1

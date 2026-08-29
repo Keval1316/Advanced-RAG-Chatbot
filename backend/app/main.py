@@ -40,21 +40,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Database table initialization notice: {str(e)}")
 
-    # Warm up models asynchronously so server is immediately responsive
-    try:
-        from backend.app.rag.embeddings import embedding_service
-        from backend.app.rag.reranker import reranker
-        from backend.app.services.vector_service import vector_service
-        embedding_service.warmup()
-        reranker.warmup()
-        vector_service.get_client()
-        logger.info("All RAG pipelines and vector connections warmed up successfully.")
-    except Exception as e:
-        logger.warning(f"Startup warmup note: {str(e)}")
-
     yield
     # Shutdown lifecycle
     logger.info(f"Shutting down {settings.APP_NAME}...")
+
 
 
 import os
