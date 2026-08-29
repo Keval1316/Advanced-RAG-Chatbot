@@ -1,3 +1,4 @@
+import os
 import uuid
 from typing import List
 from fastapi import APIRouter, Depends, UploadFile, File, Form, status
@@ -85,6 +86,41 @@ def get_document(
     )
 
 
+@router.post(
+    "/extract-text",
+    summary="Directly extract text from an uploaded document (PDF, DOCX, TXT, MD)"
+)
+async def extract_document_text(
+    file: UploadFile = File(..., description="Document file to extract text from")
+):
+    import tempfile
+    from backend.app.rag.parser import document_parser
+
+    # Save to temp file
+    suffix = os.path.splitext(file.filename)[1].lower() or ".tmp"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+        content = await file.read()
+        temp_file.write(content)
+        temp_path = temp_file.name
+
+    try:
+        pages = document_parser.parse_file(temp_path, file.filename)
+        full_text = "\n\n".join(p.text for p in pages if p.text.strip())
+        return {
+            "success": True,
+            "filename": file.filename,
+            "page_count": len(pages),
+            "text": full_text,
+            "pages": [{"page_number": p.page_number, "text": p.text} for p in pages]
+        }
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+
 @router.delete(
     "/{doc_id}",
     response_model=APIResponse[dict],
@@ -102,3 +138,4 @@ def delete_document(
         message="Document deleted successfully.",
         data={"id": str(doc_id)}
     )
+

@@ -6,15 +6,16 @@ from backend.app.schemas.rag import ScoredChunk, Citation
 from backend.app.services.llm_service import llm_service
 
 
-GENERATOR_SYSTEM_PROMPT = """You are an Enterprise AI Knowledge Assistant.
-Your mission is to provide accurate, truthful, and helpful answers strictly grounded in the provided document sources.
+GENERATOR_SYSTEM_PROMPT = """You are Nexus AI, a brilliant, helpful, and friendly Enterprise AI Knowledge Assistant powered by Llama 3.3.
+You can converse naturally in any language (English, Hindi, Hinglish, Spanish, etc.), explain concepts, write and debug code, and analyze enterprise documents.
 
-Strict Instructions:
-1. Grounding: Rely ONLY on the provided context sources below to answer the user's question.
-2. No Hallucination: Do NOT fabricate facts, infer beyond what is written, or assume details not present in the sources.
-3. Insufficient Context: If the answer cannot be found in the provided sources, state clearly and politely: "I could not find sufficient information in the knowledge base documents to answer this question."
-4. Citations: When making a factual claim, cite the source using the exact format `[Source N]`.
-5. Structure: Use clear formatting, bullet points, and professional language.
+Instructions:
+1. When Document Context is provided below:
+   - Provide answers grounded in the provided document sources.
+   - Use source citations like `[Source N]` where appropriate.
+2. When NO Document Context is provided or when the user is chatting generally (greetings, general questions, coding problems):
+   - Answer directly, conversationally, and accurately in the user's language and tone without any artificial refusal.
+3. Structure: Use clean markdown, bold terms, bullet points, and code blocks where helpful.
 """
 
 
@@ -53,28 +54,26 @@ class AnswerGenerator:
         conversation_history: Optional[List[Dict[str, str]]] = None,
         insufficient_context: bool = False
     ) -> Tuple[str, List[Citation]]:
-        if insufficient_context or not chunks:
-            return (
-                "I could not find sufficient information in the knowledge base documents to answer this question.",
-                []
-            )
-
-        context_text, citations = cls.build_context(chunks)
-
+        citations: List[Citation] = []
         history_messages = []
+
         if conversation_history:
-            # Include recent history
             for msg in conversation_history[-settings.MAX_HISTORY_MESSAGES:]:
                 history_messages.append({
                     "role": msg.get("role", "user"),
                     "content": msg.get("content", "")
                 })
 
-        user_content = (
-            f"=== DOCUMENT CONTEXT ===\n{context_text}\n"
-            f"=== END CONTEXT ===\n\n"
-            f"Question: {query}"
-        )
+        if chunks and not insufficient_context:
+            context_text, citations = cls.build_context(chunks)
+            user_content = (
+                f"=== DOCUMENT CONTEXT ===\n{context_text}\n"
+                f"=== END CONTEXT ===\n\n"
+                f"Question: {query}"
+            )
+        else:
+            user_content = query
+
         history_messages.append({"role": "user", "content": user_content})
 
         try:
@@ -85,8 +84,6 @@ class AnswerGenerator:
                 temperature=settings.GROQ_TEMPERATURE,
                 max_tokens=settings.GROQ_MAX_TOKENS
             )
-
-            # Filter citations to only those actually referenced or top relevant
             return answer, citations
 
         except Exception as e:

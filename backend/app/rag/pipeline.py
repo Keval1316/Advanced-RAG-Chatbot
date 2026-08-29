@@ -3,6 +3,7 @@ import time
 from typing import List, Dict, Optional, Any
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
+from backend.app.core.guardrails import guardrails
 from backend.app.schemas.rag import ScoredChunk, Citation, ChatResponse
 from backend.app.rag.router import query_router, QueryRoute
 from backend.app.rag.rewriter import query_rewriter
@@ -26,6 +27,19 @@ class AdvancedRAGPipeline:
         history = conversation_history or []
         attempt = 1
         transformed_query = query.strip()
+
+        # Step 0: Input Guardrails & Safety Filter
+        is_safe, safety_response = guardrails.evaluate(query)
+        if not is_safe:
+            return ChatResponse(
+                conversation_id=conversation_id,
+                answer=safety_response,
+                citations=[],
+                metadata={
+                    "guardrail_status": "BLOCKED",
+                    "latency_seconds": round(time.time() - start_time, 4)
+                }
+            )
 
         # Step 1: Query Routing
         route = query_router.route(query=query, conversation_history=history)

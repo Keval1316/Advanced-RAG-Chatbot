@@ -166,3 +166,27 @@ def delete_conversation(
         message="Conversation deleted successfully.",
         data={"id": str(conv_id)}
     )
+
+
+@router.post(
+    "/generate-direct",
+    summary="Direct generation endpoint via backend Groq failover pool"
+)
+async def generate_direct(payload: dict):
+    from backend.app.services.llm_service import llm_service
+    messages = payload.get("messages", [])
+    model = payload.get("model")
+    temperature = payload.get("temperature", 0.1)
+    max_tokens = payload.get("max_tokens", 2048)
+
+    try:
+        content = llm_service.generate_chat(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+        return {"success": True, "content": content}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+

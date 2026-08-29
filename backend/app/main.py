@@ -27,6 +27,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"Shutting down {settings.APP_NAME}...")
 
 
+import os
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+# Root workspace directory for frontend static assets
+BASE_DIR = Path(__file__).resolve().parents[2]
+INDEX_HTML_PATH = BASE_DIR / "index.html"
+STYLE_CSS_PATH = BASE_DIR / "style.css"
+SCRIPT_JS_PATH = BASE_DIR / "script.js"
+
 def create_application() -> FastAPI:
     application = FastAPI(
         title=settings.APP_NAME,
@@ -64,17 +75,57 @@ def create_application() -> FastAPI:
     # Include API Routers
     application.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
-    @application.get("/", tags=["Root"])
-    async def root():
+    # Health & System Status Endpoint
+    @application.get("/api/v1/system/status", tags=["System"])
+    @application.get("/health", tags=["System"])
+    async def health_status():
         return {
+            "status": "healthy",
             "name": settings.APP_NAME,
             "version": "1.0.0",
             "environment": settings.APP_ENV,
-            "docs": f"{settings.API_V1_PREFIX}/docs",
-            "health": f"{settings.API_V1_PREFIX}/health"
+            "docs": f"{settings.API_V1_PREFIX}/docs"
         }
+
+    # Frontend UI Routes
+    @application.get("/", tags=["Frontend"])
+    async def serve_index():
+        if INDEX_HTML_PATH.exists():
+            return FileResponse(INDEX_HTML_PATH, media_type="text/html")
+        return JSONResponse({
+            "name": settings.APP_NAME,
+            "version": "1.0.0",
+            "docs": f"{settings.API_V1_PREFIX}/docs"
+        })
+
+    @application.get("/style.css", include_in_schema=False)
+    async def serve_style():
+        if STYLE_CSS_PATH.exists():
+            return FileResponse(STYLE_CSS_PATH, media_type="text/css")
+        return JSONResponse({"error": "style.css not found"}, status_code=404)
+
+    @application.get("/script.js", include_in_schema=False)
+    async def serve_script():
+        if SCRIPT_JS_PATH.exists():
+            return FileResponse(SCRIPT_JS_PATH, media_type="application/javascript")
+        return JSONResponse({"error": "script.js not found"}, status_code=404)
+
+    # Mount uploads directory if it exists
+    uploads_path = BASE_DIR / "uploads"
+    if uploads_path.exists():
+        application.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
 
     return application
 
 
 app = create_application()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "backend.app.main:app",
+        host=settings.BACKEND_HOST,
+        port=settings.BACKEND_PORT,
+        reload=settings.DEBUG
+    )
+

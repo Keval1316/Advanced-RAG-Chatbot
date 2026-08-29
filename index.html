@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus AI &bull; Enterprise Knowledge Assistant</title>
+  <meta name="description" content="A modern, premium, light-themed AI Knowledge Assistant interface.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300ADB5'><circle cx='12' cy='12' r='10'/></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Hidden File Input for Document Upload -->
+  <input type="file" id="documentFileInput" accept=".pdf,.docx,.txt,.md" style="display: none;" aria-label="Upload document file">
+
+  <!-- App Wrapper -->
+  <div class="app-layout">
+    
+    <!-- Mobile Overlay Backdrop -->
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+
+    <!-- 1. LEFT SIDEBAR -->
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar Navigation">
+      <!-- Sidebar Header / Logo -->
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a8 8 0 0 0-8 8c0 3.36 2.07 6.24 5 7.42V20a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-2.58c2.93-1.18 5-4.06 5-7.42a8 8 0 0 0-8-8z"></path>
+              <line x1="9.5" y1="9" x2="9.51" y2="9"></line>
+              <line x1="14.5" y1="14.51" x2="14.51" y2="14.51"></line>
+              <path d="M9.5 13a3.5 3.5 0 0 0 5 0"></path>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <span class="brand-title">Nexus AI</span>
+            <span class="brand-subtitle">Knowledge Assistant</span>
+          </div>
+        </div>
+
+        <button class="icon-btn close-sidebar-btn" id="closeSidebarBtn" aria-label="Close sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Action: New Chat Button -->
+      <div class="sidebar-action">
+        <button class="btn-new-chat" id="newChatBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>New Chat</span>
+        </button>
+      </div>
+
+      <!-- Search Chats Input -->
+      <div class="sidebar-search">
+        <div class="search-input-wrapper">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchChatsInput" placeholder="Search conversations..." aria-label="Search chat history">
+        </div>
+      </div>
+
+      <!-- Chat History List -->
+      <div class="sidebar-history">
+        <div class="history-section-title">Recent Conversations</div>
+        <ul class="chat-list" id="chatList" role="list">
+          <!-- Populated dynamically via script.js -->
+        </ul>
+      </div>
+
+      <!-- Chat-Wise Knowledge Base Documents Manager -->
+      <div class="sidebar-kb-section">
+        <div class="kb-section-header">
+          <div class="kb-section-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <span>Chat Documents</span>
+          </div>
+          <button class="kb-add-doc-btn" id="sidebarAddDocBtn" title="Upload document to this chat's knowledge base">+ Add</button>
+        </div>
+        <ul class="kb-doc-list" id="sidebarKbDocList">
+          <!-- Populated dynamically for active chat -->
+        </ul>
+      </div>
+
+      <!-- Sidebar Footer / User Profile & Settings -->
+      <div class="sidebar-footer">
+        <div class="user-profile" id="userProfileCard" style="display: flex;">
+          <div class="user-avatar" id="userAvatar">
+            <span>KC</span>
+          </div>
+          <div class="user-info">
+            <div class="user-name" id="userName">Keval Chudasama</div>
+            <div class="user-role" id="userRole">Admin &bull; Enterprise</div>
+          </div>
+          <button class="icon-btn logout-btn" id="logoutBtn" title="Sign Out" aria-label="Sign Out">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="sidebar-auth-cta" id="sidebarAuthCta" style="display: none;">
+          <button class="btn-sidebar-auth" id="openAuthModalBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span>Sign In / Register</span>
+          </button>
+        </div>
+
+        <button class="icon-btn settings-btn" id="settingsBtn" title="System Settings" aria-label="Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 2. MAIN CHAT AREA -->
+    <main class="chat-main" id="chatMain" role="main">
+      
+      <!-- Interactive Grid Background Layer (Darkens cleanly on cursor hover + Automatic Ambient Waves) -->
+      <div class="grid-background" id="gridBackground" aria-hidden="true">
+        <div class="grid-lines-base"></div>
+        <div class="grid-lines-wave" id="gridWave1"></div>
+        <div class="grid-lines-wave grid-wave-secondary" id="gridWave2"></div>
+        <div class="grid-lines-hover"></div>
+      </div>
+
+      <!-- Main Header -->
+      <header class="chat-header">
+        <div class="header-left">
+          <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Sidebar Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="chat-title-group">
+            <h1 class="chat-title" id="chatTitle">Nexus AI</h1>
+            <div class="chat-status-pill">
+              <span class="status-dot"></span>
+              <span class="status-text">Llama 3.3 70B &bull; Ready</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button class="header-action-btn" id="uploadNavBtn" title="Upload Document to Knowledge Base">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span>Upload Document</span>
+          </button>
+
+          <button class="header-action-btn" id="clearChatBtn" title="Clear current conversation" aria-label="Clear chat">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span>Clear Chat</span>
+          </button>
+
+          <button class="header-auth-badge-btn" id="headerAuthBtn" title="Account Authentication">
+            <span class="auth-badge-avatar" id="headerAvatar">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </span>
+            <span class="auth-badge-name" id="headerUserName">Login / Sign Up</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Scrollable Chat Body Container -->
+      <div class="chat-body" id="chatBody">
+        
+        <!-- Welcome Screen / Empty State -->
+        <div class="welcome-container" id="welcomeContainer">
+          <div class="welcome-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            <span>Enterprise Knowledge Intelligence</span>
+          </div>
+
+          <h2 class="welcome-heading">How can I help you today?</h2>
+          <p class="welcome-subtitle">
+            Ask questions, analyze documents, summarize technical manuals, and retrieve verified citations from your enterprise knowledge base.
+          </p>
+
+          <!-- 4 Suggestion Cards -->
+          <div class="suggestion-grid">
+            <button class="suggestion-card" data-prompt="Summarize the security policies and deployment architecture.">
+              <div class="suggestion-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+              </div>
+              <div class="suggestion-content">
+                <div class="suggestion-title">Summarize documents</div>
+                <div class="suggestion-desc">Extract key takeaways & policy highlights</div>
+              </div>
+            </button>
+
+            <button class="suggestion-card" data-prompt="Explain how the hybrid search and reciprocal rank fusion (RRF) algorithm works.">
+              <div class="suggestion-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="16" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+              </div>
+              <div class="suggestion-content">
+                <div class="suggestion-title">Explain a complex concept</div>
+                <div class="suggestion-desc">Break down technical RAG algorithms</div>
+              </div>
+            </button>
+
+            <button class="suggestion-card" data-prompt="Find important information regarding API authentication tokens and expiry limits.">
+              <div class="suggestion-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </div>
+              <div class="suggestion-content">
+                <div class="suggestion-title">Find critical specifications</div>
+                <div class="suggestion-desc">Query exact parameters & auth rules</div>
+              </div>
+            </button>
+
+            <button class="suggestion-card" data-prompt="Show me an example code snippet to authenticate with the FastAPI REST endpoint.">
+              <div class="suggestion-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+              </div>
+              <div class="suggestion-content">
+                <div class="suggestion-title">Generate API code snippets</div>
+                <div class="suggestion-desc">Get ready-to-run Python/JS examples</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat Messages Stream -->
+        <div class="messages-container" id="messagesContainer">
+          <!-- Rendered dynamically by script.js -->
+        </div>
+
+        <!-- Typing Indicator with Live Multi-Step Processing Pipeline -->
+        <div class="typing-indicator" id="typingIndicator" style="display: none;">
+          <div class="ai-avatar-mini">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 2a8 8 0 0 0-8 8c0 3.36 2.07 6.24 5 7.42V20a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-2.58c2.93-1.18 5-4.06 5-7.42a8 8 0 0 0-8-8z"></path>
+            </svg>
+          </div>
+          <div class="pipeline-status-card" id="pipelineStatusCard">
+            <div class="pipeline-card-header">
+              <div class="pipeline-header-title">
+                <span class="step-spinner"></span>
+                <span id="pipelineMainStatus">Analyzing Query Scope...</span>
+              </div>
+            </div>
+            <div class="pipeline-steps-list" id="pipelineStepsList">
+              <!-- Steps rendered dynamically via script.js -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 3. STICKY / FLOATING CHAT INPUT AREA -->
+      <footer class="chat-input-wrapper">
+        
+        <!-- Attached File Chip Bar (Shown when a document is selected) -->
+        <div class="attached-file-bar" id="attachedFileBar" style="display: none;">
+          <div class="file-chip">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <span class="file-chip-name" id="attachedFileName">document.pdf</span>
+            <span class="file-chip-size" id="attachedFileSize">1.2 MB</span>
+            <button class="file-chip-remove" id="removeAttachedFileBtn" title="Remove attachment">&times;</button>
+          </div>
+        </div>
+
+        <!-- Response Mode Selector (Fast vs Think) -->
+        <div class="input-top-bar">
+          <div class="response-mode-toggle" id="responseModeToggle" role="radiogroup" aria-label="AI Reasoning Mode">
+            <button type="button" class="mode-toggle-btn active" id="modeFastBtn" data-mode="fast" role="radio" aria-checked="true" title="Fast Mode: Instant, snappy, and concise responses">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              <span>Fast</span>
+            </button>
+            <button type="button" class="mode-toggle-btn" id="modeThinkBtn" data-mode="think" role="radio" aria-checked="false" title="Think Mode: Deep reasoning, comprehensive multi-step analysis">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a8 8 0 0 0-8 8c0 3.36 2.07 6.24 5 7.42V20a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-2.58c2.93-1.18 5-4.06 5-7.42a8 8 0 0 0-8-8z"></path>
+                <line x1="9" y1="22" x2="15" y2="22"></line>
+              </svg>
+              <span>Think</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="chat-input-container">
+          <button class="input-action-btn attach-btn" id="attachBtn" title="Attach reference document (PDF, DOCX, TXT)" aria-label="Attach document">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+            </svg>
+          </button>
+          
+          <textarea
+            id="chatTextarea"
+            class="chat-textarea"
+            placeholder="Ask anything about your documents..."
+            rows="1"
+            aria-label="Chat input message"
+          ></textarea>
+
+          <button class="send-btn" id="sendBtn" title="Send message (Enter)" aria-label="Send message" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="input-footer-note">
+          <span>Press <b>Enter</b> to send &bull; <b>Shift + Enter</b> for new line</span>
+        </div>
+      </footer>
+
+    </main>
+  </div>
+
+  <!-- Authentication Modal (Sign In / Register) -->
+  <div class="modal-overlay" id="authModal" style="display: none;">
+    <div class="modal-card auth-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <h3 id="authModalTitle">Welcome to Nexus AI</h3>
+        </div>
+        <button class="modal-close-btn" id="closeAuthBtn" aria-label="Close Authentication">&times;</button>
+      </div>
+
+      <!-- Auth Tabs: Sign In / Create Account -->
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" id="tabSignInBtn">Sign In</button>
+        <button class="auth-tab-btn" id="tabRegisterBtn">Create Account</button>
+      </div>
+
+      <div class="modal-body auth-modal-body">
+        <!-- Error / Feedback Alert -->
+        <div class="auth-error-banner" id="authErrorBanner" style="display: none;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span id="authErrorMessage">Invalid credentials</span>
+        </div>
+
+        <!-- 1. SIGN IN FORM -->
+        <form class="auth-form" id="signInForm" onsubmit="return false;">
+          <div class="form-group">
+            <label class="form-label" for="loginIdentifier">Email or Username</label>
+            <input type="text" class="form-input" id="loginIdentifier" placeholder="keval or keval@enterprise.ai" required autocomplete="username">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="loginPassword">Password</label>
+            <div class="password-input-wrapper">
+              <input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
+              <button type="button" class="password-toggle-btn" id="toggleLoginPasswordBtn" title="Toggle password visibility" aria-label="Toggle password visibility">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="auth-extra-row">
+            <button type="button" class="demo-fill-btn" id="demoFillBtn">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              <span>Quick Demo Account</span>
+            </button>
+          </div>
+
+          <button type="submit" class="auth-submit-btn" id="submitLoginBtn">
+            <span>Sign In to Workspace</span>
+          </button>
+        </form>
+
+        <!-- 2. REGISTER FORM -->
+        <form class="auth-form" id="registerForm" style="display: none;" onsubmit="return false;">
+          <div class="form-group">
+            <label class="form-label" for="regFullName">Full Name</label>
+            <input type="text" class="form-input" id="regFullName" placeholder="Keval Chudasama" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regUsername">Username</label>
+            <input type="text" class="form-input" id="regUsername" placeholder="keval1316" required autocomplete="username">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regEmail">Email Address</label>
+            <input type="email" class="form-input" id="regEmail" placeholder="keval@enterprise.ai" required autocomplete="email">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regPassword">Password (Min. 8 characters)</label>
+            <input type="password" class="form-input" id="regPassword" placeholder="••••••••" required autocomplete="new-password">
+          </div>
+
+          <button type="submit" class="auth-submit-btn" id="submitRegisterBtn">
+            <span>Create Free Account</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="auth-modal-footer">
+        <span class="auth-switch-text" id="authSwitchPrompt">Don't have an account?</span>
+        <button class="auth-switch-link" id="authSwitchLinkBtn">Create one now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal (Light themed, modern modal) -->
+  <div class="modal-overlay" id="settingsModal" style="display: none;">
+    <div class="modal-card settings-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </div>
+          <h3>System & Memory Settings</h3>
+        </div>
+        <button class="modal-close-btn" id="closeSettingsBtn" aria-label="Close Settings">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- SECTION 1: AUTHENTICATION & ACCESS -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span>Authentication & Account</span>
+          </div>
+
+          <div class="settings-account-card" id="settingsAccountCard">
+            <div class="settings-account-info">
+              <div class="settings-account-avatar" id="settingsAccountAvatar">U</div>
+              <div class="settings-account-details">
+                <div class="settings-account-name" id="settingsAccountName">Guest User</div>
+                <div class="settings-account-email" id="settingsAccountEmail">Unauthenticated Session</div>
+              </div>
+            </div>
+            <button type="button" class="btn-settings-auth" id="settingsAuthActionBtn">Sign In</button>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label" for="settingCustomApiKey">Custom Groq API Key (Optional Override)</label>
+            <input type="password" class="setting-input" id="settingCustomApiKey" placeholder="Leave empty to use built-in 3-key failover pool">
+            <span class="setting-hint">When blank, requests automatically rotate across 3 high-capacity enterprise Groq keys with automatic failover.</span>
+          </div>
+        </div>
+
+        <!-- SECTION 2: CONVERSATION MEMORY & CONTEXT MANAGEMENT -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+            <span>Memory & Context Management</span>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label" for="settingMemoryWindow">Conversation Context Memory Window</label>
+            <select class="setting-select" id="settingMemoryWindow">
+              <option value="5">5 Recent Messages (Compact & Quick)</option>
+              <option value="10" selected>10 Recent Messages (Standard - Recommended)</option>
+              <option value="20">20 Recent Messages (Extended Context)</option>
+              <option value="50">50 Messages (Deep Memory Window)</option>
+            </select>
+            <span class="setting-hint">Controls how many past conversational turns are loaded into LLM attention memory for continuity.</span>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label" for="settingKbTopK">Knowledge Base Semantic Retrieval Passages (Top-K)</label>
+            <select class="setting-select" id="settingKbTopK">
+              <option value="3">Top 3 Passages (Faster Grounding)</option>
+              <option value="5" selected>Top 5 Passages (Balanced Grounding - Recommended)</option>
+              <option value="8">Top 8 Passages (Exhaustive Grounding)</option>
+            </select>
+            <span class="setting-hint">Number of highest-scoring semantic chunks retrieved from vector search and cross-encoder reranked.</span>
+          </div>
+
+          <!-- Live Memory Stats -->
+          <div class="settings-stats-row">
+            <div class="settings-stat-badge">
+              <span class="stat-number" id="memoryStatConversations">1</span>
+              <span class="stat-label">Active Chats</span>
+            </div>
+            <div class="settings-stat-badge">
+              <span class="stat-number" id="memoryStatMessages">0</span>
+              <span class="stat-label">Stored Messages</span>
+            </div>
+            <div class="settings-stat-badge">
+              <span class="stat-number" id="memoryStatDocs">0</span>
+              <span class="stat-label">Indexed Documents</span>
+            </div>
+          </div>
+
+          <button type="button" class="btn-flush-memory" id="flushActiveMemoryBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+            <span>Flush Active Chat Context Memory</span>
+          </button>
+        </div>
+
+        <!-- SECTION 3: DANGER ZONE -->
+        <div class="setting-group-danger">
+          <div class="danger-title">Danger Zone</div>
+          <p class="danger-desc">Permanently erase all conversation history and document caches from browser storage.</p>
+          <button class="btn-danger" id="clearAllHistoryBtn">Clear All Chat History</button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="modal-btn-cancel" id="cancelSettingsBtn">Cancel</button>
+        <button class="modal-btn-save" id="saveSettingsBtn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- Script -->
+  <script src="script.js"></script>
+</body>
+</html>

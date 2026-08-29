@@ -39,9 +39,12 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
 
-    # Groq LLM API
+    # Groq LLM API (Multi-Key Pool)
     GROQ_API_KEY: str = ""
+    GROQ_API_KEYS: Union[str, List[str]] = []
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_FAST_MODEL: str = "llama-3.1-8b-instant"
+    GROQ_THINK_MODEL: str = "llama-3.3-70b-versatile"
     GROQ_ROUTER_MODEL: str = "llama-3.1-8b-instant"
     GROQ_TEMPERATURE: float = 0.1
     GROQ_MAX_TOKENS: int = 2048
