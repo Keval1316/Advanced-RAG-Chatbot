@@ -1242,19 +1242,21 @@
     let systemPrompt = '';
     let messagesPayload = [];
 
-    // Production Groq Models: Llama 3.3 70B & Llama 3.1 8B (fast, accurate, no scratchpad leakage)
+    // Verified Active Groq Models
     const isThinkMode = (selectedResponseMode === 'think');
     const targetTemp = isThinkMode ? 0.2 : 0.1;
     const candidateModels = [
-      'llama-3.3-70b-versatile',
-      'llama-3.1-8b-instant',
-      'mixtral-8x7b-32768'
+      'openai/gpt-oss-120b',
+      'openai/gpt-oss-20b',
+      'groq/compound-mini',
+      'groq/compound',
+      'qwen/qwen3.6-27b'
     ];
 
     if (hasDocs) {
       // Step Animation: Searching & Retrieving from Knowledge Base
       const docNames = docs.map((d) => d.name).join(', ');
-      const modeLabel = isThinkMode ? 'Deep Reasoning Mode (Llama 3.3 70B)' : 'Fast Mode (Instant)';
+      const modeLabel = isThinkMode ? 'Deep Reasoning Mode (120B)' : 'Fast Mode (Instant)';
       await animatePipelineSteps([
         { title: `Searching knowledge base: ${docNames}...`, duration: 350 },
         { title: `Extracting semantic passages & reranking...`, duration: 350 },
@@ -1273,7 +1275,7 @@ Below is the knowledge base document context:
 ${contextBlocks.join('\n\n')}
 
 Instructions:
-1. Provide a comprehensive, accurate, and direct response to the user's question.
+1. Provide a comprehensive, accurate, and direct response to the user's question based on the document context.
 2. If the user asks for code, summaries, or solutions, provide clear explanations and properly formatted code blocks.
 3. Output ONLY your direct, polished response in Markdown. Do not include internal monologue, scratchpads, self-dialogue, or thinking steps.`;
     } else {
@@ -1301,27 +1303,41 @@ Instructions:
       });
     }
 
-    // Multi-Key Failover Pool & Model Rotation (Client custom key or backend proxy)
-    const keysPool = [
-      userSettings.customGroqApiKey,
-      userSettings.groqApiKey
-    ].filter(Boolean);
-
-    const uniqueKeys = [...new Set(keysPool)];
-
     let answerText = null;
-    let lastError = null;
 
-    // 1. If client provided custom key, call Groq directly
-    if (uniqueKeys.length > 0) {
-      for (const apiKey of uniqueKeys) {
+    // 1. Primary Strategy: Call FastAPI Backend LLM Proxy (resilient, multi-key failover pool from .env)
+    try {
+      const backendRes = await fetch('/api/v1/chat/generate-direct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: messagesPayload,
+          model: isThinkMode ? 'openai/gpt-oss-120b' : 'openai/gpt-oss-20b',
+          temperature: targetTemp,
+          max_tokens: 2048
+        })
+      });
+      if (backendRes.ok) {
+        const backendData = await backendRes.json();
+        if (backendData.success && backendData.content) {
+          answerText = backendData.content;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend proxy generation failed, attempting direct fallback', err);
+    }
+
+    // 2. Secondary Strategy: If client provided custom key in settings or backend is unreachable, try direct Groq API
+    if (!answerText) {
+      const customKey = userSettings.customGroqApiKey || userSettings.groqApiKey;
+      if (customKey) {
         for (const modelId of candidateModels) {
           try {
             const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
+                'Authorization': `Bearer ${customKey}`
               },
               body: JSON.stringify({
                 model: modelId,
@@ -1335,38 +1351,11 @@ Instructions:
               const groqData = await groqRes.json();
               answerText = groqData.choices[0]?.message?.content;
               if (answerText) break;
-            } else {
-              lastError = await groqRes.text();
             }
           } catch (e) {
-            lastError = e.message;
+            console.warn(`Direct Groq request failed for model ${modelId}:`, e.message);
           }
         }
-        if (answerText) break;
-      }
-    }
-
-    // 2. Fallback: Route request securely through FastAPI backend Groq service pool
-    if (!answerText) {
-      try {
-        const backendRes = await fetch('/api/v1/chat/generate-direct', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: messagesPayload,
-            model: candidateModels[0],
-            temperature: targetTemp,
-            max_tokens: 2048
-          })
-        });
-        if (backendRes.ok) {
-          const backendData = await backendRes.json();
-          if (backendData.success && backendData.content) {
-            answerText = backendData.content;
-          }
-        }
-      } catch (err) {
-        console.warn('Backend proxy generation failed', err);
       }
     }
 
@@ -1375,7 +1364,7 @@ Instructions:
 
     return {
       role: 'assistant',
-      content: cleanedAnswer || answerText || 'I could not generate a response. Please check your network connection.',
+      content: cleanedAnswer || answerText || 'I could not generate a response. Please verify your server connection.',
       citations: hasDocs ? citations : []
     };
   }

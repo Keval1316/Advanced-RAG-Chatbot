@@ -42,10 +42,10 @@ class Settings(BaseSettings):
     # Groq LLM API (Multi-Key Pool)
     GROQ_API_KEY: str = ""
     GROQ_API_KEYS: Union[str, List[str]] = []
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
-    GROQ_FAST_MODEL: str = "llama-3.1-8b-instant"
-    GROQ_THINK_MODEL: str = "llama-3.3-70b-versatile"
-    GROQ_ROUTER_MODEL: str = "llama-3.1-8b-instant"
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_FAST_MODEL: str = "openai/gpt-oss-20b"
+    GROQ_THINK_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_ROUTER_MODEL: str = "groq/compound-mini"
     GROQ_TEMPERATURE: float = 0.1
     GROQ_MAX_TOKENS: int = 2048
 
