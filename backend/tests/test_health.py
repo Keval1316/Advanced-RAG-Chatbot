@@ -6,11 +6,16 @@ client = TestClient(app)
 
 
 def test_root_endpoint():
-    response = client.get("/")
+    # JSON API client request
+    response = client.get("/", headers={"Accept": "application/json"})
     assert response.status_code == 200
     data = response.json()
     assert "name" in data
     assert "health" in data
+
+    # Default browser HTML request
+    html_response = client.get("/", headers={"Accept": "text/html"})
+    assert html_response.status_code == 200
 
 
 def test_health_check_endpoint():

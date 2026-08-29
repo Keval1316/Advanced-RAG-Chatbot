@@ -1,3 +1,14 @@
+---
+title: Advanced RAG Chatbot
+emoji: 🧠
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+---
+
 # 🧠 Enterprise AI Knowledge Assistant — Advanced Multi-Tenant RAG Platform
 
 <div align="center">

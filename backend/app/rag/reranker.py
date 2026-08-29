@@ -29,8 +29,8 @@ class CrossEncoderReranker:
         if not chunks:
             return []
 
-        # Fast-path: If 2 or fewer chunks, no need to run heavy transformer inference
-        if len(chunks) <= 2:
+        # Fast-path: If 1 or 0 chunks, no need to run cross-encoder inference
+        if len(chunks) <= 1:
             return chunks[:top_k]
 
         try:

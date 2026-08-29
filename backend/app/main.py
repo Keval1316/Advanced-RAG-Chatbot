@@ -31,6 +31,15 @@ async def lifespan(app: FastAPI):
     print(f"📊 Streamlit UI (Option) : http://localhost:{settings.FRONTEND_PORT} (run: streamlit run frontend/app.py)")
     print("=" * 65 + "\n")
 
+    # Initialize database tables if not already created
+    try:
+        from backend.app.db.session import engine
+        from backend.app.models import Base
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database schema initialized and verified successfully.")
+    except Exception as e:
+        logger.warning(f"Database table initialization notice: {str(e)}")
+
     # Warm up models asynchronously so server is immediately responsive
     try:
         from backend.app.rag.embeddings import embedding_service
@@ -110,12 +119,23 @@ def create_application() -> FastAPI:
 
     # Frontend UI Routes
     @application.get("/", tags=["Frontend"])
-    async def serve_index():
+    async def serve_index(request: Request):
+        accept_header = request.headers.get("accept", "")
+        if "application/json" in accept_header and "text/html" not in accept_header:
+            return JSONResponse({
+                "name": settings.APP_NAME,
+                "version": "1.0.0",
+                "status": "healthy",
+                "health": f"{settings.API_V1_PREFIX}/health",
+                "docs": f"{settings.API_V1_PREFIX}/docs"
+            })
         if INDEX_HTML_PATH.exists():
             return FileResponse(INDEX_HTML_PATH, media_type="text/html")
         return JSONResponse({
             "name": settings.APP_NAME,
             "version": "1.0.0",
+            "status": "healthy",
+            "health": f"{settings.API_V1_PREFIX}/health",
             "docs": f"{settings.API_V1_PREFIX}/docs"
         })
 

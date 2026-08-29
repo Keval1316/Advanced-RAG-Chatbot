@@ -2,6 +2,7 @@ from typing import List, Union
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import json
+import os
 
 
 class Settings(BaseSettings):
@@ -26,13 +27,13 @@ class Settings(BaseSettings):
     FRONTEND_PORT: int = 8501
     API_BASE_URL: str = "http://localhost:8000/api/v1"
 
-    # PostgreSQL Database
+    # Database Settings (PostgreSQL or SQLite fallback)
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "rag_knowledge_db"
-    DATABASE_URL: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/rag_knowledge_db"
+    DATABASE_URL: str = "sqlite:///./rag_knowledge_db.sqlite3"
 
     # JWT Authentication
     JWT_SECRET_KEY: str = "enterprise-super-secret-jwt-key-min-32-characters"
@@ -81,6 +82,17 @@ class Settings(BaseSettings):
 
     # Conversation Memory
     MAX_HISTORY_MESSAGES: int = 10
+
+    @field_validator("BACKEND_PORT", mode="before")
+    @classmethod
+    def assemble_backend_port(cls, v):
+        port_env = os.getenv("PORT")
+        if port_env:
+            try:
+                return int(port_env)
+            except ValueError:
+                pass
+        return int(v) if v else 8000
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

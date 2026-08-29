@@ -4,21 +4,28 @@ from sqlalchemy.orm import sessionmaker, Session
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 
+# Normalize database connection string (e.g. postgres:// or postgresql:// -> postgresql+psycopg2://)
+database_url = settings.DATABASE_URL
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql+psycopg2://", 1)
+elif database_url.startswith("postgresql://") and not database_url.startswith("postgresql+"):
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
 # Configure engine arguments based on dialect
 connect_args = {}
-if "sqlite" in settings.DATABASE_URL:
+if "sqlite" in database_url:
     connect_args = {"check_same_thread": False}
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    database_url,
     echo=False,
     future=True,
     connect_args=connect_args,
     pool_pre_ping=True
 )
 
-# If SQLite is used (e.g. for lightweight testing), enable foreign key support
-if "sqlite" in settings.DATABASE_URL:
+# If SQLite is used (e.g. for lightweight testing/deployments), enable foreign key support
+if "sqlite" in database_url:
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
