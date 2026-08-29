@@ -51,9 +51,9 @@
   ];
 
   const DEFAULT_USER = {
-    fullName: 'Keval Chudasama',
-    username: 'keval1316',
-    email: 'keval@enterprise.ai',
+    fullName: 'Alex Rivera',
+    username: 'alex_rivera',
+    email: 'alex@enterprise.ai',
     role: 'Admin • Enterprise'
   };
 
@@ -412,7 +412,7 @@
   }
   if (demoFillBtn) {
     demoFillBtn.addEventListener('click', () => {
-      loginIdentifier.value = 'keval1316';
+      loginIdentifier.value = 'alex_rivera';
       loginPassword.value = 'Password123!';
       handleLogin();
     });

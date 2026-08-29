@@ -8,12 +8,10 @@ from backend.app.core.exceptions import LLMServiceException
 
 FALLBACK_MODELS = [
     "openai/gpt-oss-120b",
-    "qwen/qwen3.6-27b",
     "openai/gpt-oss-20b",
-    "groq/compound",
     "groq/compound-mini",
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant"
+    "groq/compound",
+    "qwen/qwen3.6-27b"
 ]
 
 DEFAULT_KEYS: List[str] = []
@@ -48,6 +46,7 @@ def clean_thinking_process(text: str) -> str:
 class LLMService:
     _instance = None
     _clients: List[Groq] = []
+    _cached_keys: List[str] = []
 
     def __new__(cls):
         if cls._instance is None:
@@ -77,12 +76,18 @@ class LLMService:
 
     def get_clients(self) -> List[Groq]:
         keys = self.get_api_keys()
+        if self._clients and self._cached_keys == keys:
+            return self._clients
+
         clients = []
         for key in keys:
             try:
                 clients.append(Groq(api_key=key))
             except Exception as e:
                 logger.warning(f"Could not init Groq client for key {key[:10]}...: {str(e)}")
+
+        self._clients = clients
+        self._cached_keys = keys
         return clients
 
     def generate(
@@ -97,7 +102,8 @@ class LLMService:
         if not clients:
             return f"Answer based on available knowledge base: {prompt}"
 
-        models_to_try = [model or settings.GROQ_MODEL] + [m for m in FALLBACK_MODELS if m != (model or settings.GROQ_MODEL)]
+        target_model = model or settings.GROQ_MODEL
+        models_to_try = [target_model] + [m for m in FALLBACK_MODELS if m != target_model]
         selected_temp = temperature if temperature is not None else settings.GROQ_TEMPERATURE
         selected_max_tokens = max_tokens or settings.GROQ_MAX_TOKENS
 
@@ -119,11 +125,33 @@ class LLMService:
                         temperature=selected_temp,
                         max_tokens=selected_max_tokens
                     )
-                    raw_content = completion.choices[0].message.content.strip()
-                    return clean_thinking_process(raw_content)
+                    raw_content = completion.choices[0].message.content or ""
+                    cleaned = clean_thinking_process(raw_content)
+                    if cleaned:
+                        return cleaned
+                    # If empty after thinking process cleaning, return raw if available
+                    if raw_content.strip():
+                        return raw_content.strip()
                 except Exception as e:
+                    err_str = str(e)
                     last_err = e
-                    logger.warning(f"Groq generation failed with model '{candidate_model}': {str(e)}. Retrying next...")
+                    if "reduce the length" in err_str or "400" in err_str:
+                        try:
+                            # Retry with truncated prompt and lower max_tokens
+                            truncated_user = prompt[:3000] if len(prompt) > 3000 else prompt
+                            completion = client.chat.completions.create(
+                                model=candidate_model,
+                                messages=[{"role": "system", "content": final_sys_prompt}, {"role": "user", "content": truncated_user}],
+                                temperature=selected_temp,
+                                max_tokens=min(selected_max_tokens, 768)
+                            )
+                            raw_content = completion.choices[0].message.content or ""
+                            cleaned = clean_thinking_process(raw_content)
+                            if cleaned:
+                                return cleaned
+                        except Exception:
+                            pass
+                    logger.warning(f"Groq generation failed with model '{candidate_model}': {err_str}. Retrying next...")
 
         raise LLMServiceException(message=f"All Groq API keys and candidate models failed: {str(last_err)}")
 
@@ -140,7 +168,8 @@ class LLMService:
             last_msg = messages[-1]["content"] if messages else ""
             return f"Answer based on context: {last_msg}"
 
-        models_to_try = [model or settings.GROQ_MODEL] + [m for m in FALLBACK_MODELS if m != (model or settings.GROQ_MODEL)]
+        target_model = model or settings.GROQ_MODEL
+        models_to_try = [target_model] + [m for m in FALLBACK_MODELS if m != target_model]
         selected_temp = temperature if temperature is not None else settings.GROQ_TEMPERATURE
         selected_max_tokens = max_tokens or settings.GROQ_MAX_TOKENS
 
@@ -160,11 +189,32 @@ class LLMService:
                         temperature=selected_temp,
                         max_tokens=selected_max_tokens
                     )
-                    raw_content = completion.choices[0].message.content.strip()
-                    return clean_thinking_process(raw_content)
+                    raw_content = completion.choices[0].message.content or ""
+                    cleaned = clean_thinking_process(raw_content)
+                    if cleaned:
+                        return cleaned
+                    if raw_content.strip():
+                        return raw_content.strip()
                 except Exception as e:
+                    err_str = str(e)
                     last_err = e
-                    logger.warning(f"Groq chat generation failed with model '{candidate_model}': {str(e)}. Retrying next...")
+                    # If request exceeded token budget, retry with compacted messages and lower max_tokens
+                    if "reduce the length" in err_str or "400" in err_str:
+                        try:
+                            compact_messages = [formatted_messages[0], formatted_messages[-1]]
+                            completion = client.chat.completions.create(
+                                model=candidate_model,
+                                messages=compact_messages,
+                                temperature=selected_temp,
+                                max_tokens=min(selected_max_tokens, 768)
+                            )
+                            raw_content = completion.choices[0].message.content or ""
+                            cleaned = clean_thinking_process(raw_content)
+                            if cleaned:
+                                return cleaned
+                        except Exception:
+                            pass
+                    logger.warning(f"Groq chat generation failed with model '{candidate_model}': {err_str}. Retrying next...")
 
         raise LLMServiceException(message=f"All Groq API keys and candidate models failed: {str(last_err)}")
 

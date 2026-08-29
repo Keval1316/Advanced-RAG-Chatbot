@@ -20,8 +20,29 @@ from backend.app.api.v1.router import api_router
 async def lifespan(app: FastAPI):
     # Startup lifecycle
     setup_logging()
+    port = settings.BACKEND_PORT
     logger.info(f"Starting {settings.APP_NAME} in [{settings.APP_ENV}] mode...")
-    logger.info(f"API documentation available at {settings.API_V1_PREFIX}/docs")
+    print("\n" + "=" * 65)
+    print(f"🚀 {settings.APP_NAME} is Running!")
+    print("=" * 65)
+    print(f"🌐 Frontend Web UI       : http://localhost:{port}")
+    print(f"📄 Swagger API Docs     : http://localhost:{port}{settings.API_V1_PREFIX}/docs")
+    print(f"🩺 Health Check Endpoint : http://localhost:{port}/health")
+    print(f"📊 Streamlit UI (Option) : http://localhost:{settings.FRONTEND_PORT} (run: streamlit run frontend/app.py)")
+    print("=" * 65 + "\n")
+
+    # Warm up models asynchronously so server is immediately responsive
+    try:
+        from backend.app.rag.embeddings import embedding_service
+        from backend.app.rag.reranker import reranker
+        from backend.app.services.vector_service import vector_service
+        embedding_service.warmup()
+        reranker.warmup()
+        vector_service.get_client()
+        logger.info("All RAG pipelines and vector connections warmed up successfully.")
+    except Exception as e:
+        logger.warning(f"Startup warmup note: {str(e)}")
+
     yield
     # Shutdown lifecycle
     logger.info(f"Shutting down {settings.APP_NAME}...")

@@ -22,25 +22,37 @@ Respond ONLY with the route name: DIRECT_QA, REWRITE, or HYDE. Do not include ex
 """
 
 
+GREETINGS = {
+    "hi", "hello", "hey", "hey there", "good morning", "good afternoon", "good evening",
+    "who are you", "who are you?", "what can you do", "what can you do?", "help", "thanks", "thank you"
+}
+
+
 class QueryRouter:
     @staticmethod
     def route(query: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> QueryRoute:
         clean_query = query.strip()
         history = conversation_history or []
 
-        # Heuristic fast-path: If history is present and query is short with ambiguous pronouns
+        # Heuristic 1: Instant fast-path for chit-chat / greetings
+        if clean_query.lower() in GREETINGS:
+            logger.info(f"Query '{clean_query}' fast-routed to DIRECT_QA (greeting).")
+            return QueryRoute.DIRECT_QA
+
+        # Heuristic 2: If no history, standalone queries are DIRECT_QA by default (0ms)
+        if not history:
+            return QueryRoute.DIRECT_QA
+
+        # Heuristic 3: If history is present and query is short with ambiguous pronouns -> REWRITE
         pronouns = {"it", "its", "they", "them", "that", "this", "these", "those", "why?", "how?"}
         words = set(clean_query.lower().split())
-        if history and (len(words) <= 6 and bool(words & pronouns)):
+        if len(words) <= 7 and bool(words & pronouns):
             logger.info(f"Query '{clean_query}' routed to REWRITE via conversational heuristic.")
             return QueryRoute.REWRITE
 
         prompt = f"Conversation History:\n"
-        if history:
-            for msg in history[-4:]:
-                prompt += f"{msg.get('role', 'user')}: {msg.get('content', '')}\n"
-        else:
-            prompt += "None\n"
+        for msg in history[-3:]:
+            prompt += f"{msg.get('role', 'user')}: {msg.get('content', '')}\n"
 
         prompt += f"\nCurrent Query: {clean_query}\n\nSelected Route:"
 
@@ -50,7 +62,7 @@ class QueryRouter:
                 system_prompt=ROUTER_SYSTEM_PROMPT,
                 model=settings.GROQ_ROUTER_MODEL,
                 temperature=0.0,
-                max_tokens=10
+                max_tokens=25
             ).strip().upper()
 
             if "REWRITE" in decision:

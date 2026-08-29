@@ -23,15 +23,22 @@ class EmbeddingService:
         if not texts:
             return []
         model = self._get_model()
-        embeddings_gen = model.embed(texts)
+        embeddings_gen = model.embed(texts, batch_size=64)
         return [[float(x) for x in vector] for vector in embeddings_gen]
 
     def embed_query(self, query: str) -> List[float]:
         model = self._get_model()
         query_text = f"Represent this sentence for searching relevant passages: {query}" if "bge" in settings.EMBEDDING_MODEL else query
-        embeddings_gen = model.embed([query_text])
+        embeddings_gen = model.embed([query_text], batch_size=1)
         vector = next(embeddings_gen)
         return [float(x) for x in vector]
+
+    def warmup(self) -> None:
+        try:
+            self.embed_query("warmup")
+            logger.info("Dense embedding model warmed up successfully.")
+        except Exception as e:
+            logger.warning(f"Embedding warmup warning: {str(e)}")
 
 
 embedding_service = EmbeddingService()

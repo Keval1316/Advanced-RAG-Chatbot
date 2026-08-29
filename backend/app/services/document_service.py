@@ -12,6 +12,7 @@ from backend.app.models.document import Document
 from backend.app.models.knowledge_base import KnowledgeBase
 from backend.app.rag.parser import document_parser
 from backend.app.rag.chunker import chunker
+from backend.app.rag.hybrid_search import hybrid_search_service
 from backend.app.schemas.document import ChunkMetadata
 from backend.app.services.vector_service import vector_service
 
@@ -89,6 +90,9 @@ class DocumentService:
 
             # 3. Upsert chunks into Vector Database
             vector_service.upsert_chunks(chunks)
+
+            # 4. Invalidate BM25 cache for instant fresh retrieval
+            hybrid_search_service.invalidate_cache(doc.knowledge_base_id)
 
             doc.chunk_count = len(chunks)
             doc.status = "ready"
@@ -176,6 +180,7 @@ class DocumentService:
         
         # 1. Delete vectors from Qdrant
         vector_service.delete_by_document(doc_id=doc.id, user_id=user_id)
+        hybrid_search_service.invalidate_cache(doc.knowledge_base_id)
 
         # 2. Delete file from disk if it exists
         if doc.file_path and os.path.exists(doc.file_path):

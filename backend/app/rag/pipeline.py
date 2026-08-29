@@ -41,6 +41,29 @@ class AdvancedRAGPipeline:
                 }
             )
 
+        # Fast-path for simple greetings/chit-chat (skip retrieval overhead)
+        clean_lower = transformed_query.lower().strip("?!.,")
+        greetings_set = {"hi", "hello", "hey", "hey there", "good morning", "good afternoon", "good evening", "who are you", "what can you do", "help", "thanks", "thank you"}
+        if clean_lower in greetings_set and len(clean_lower.split()) <= 4:
+            answer, _ = answer_generator.generate_answer(
+                query=query,
+                chunks=[],
+                conversation_history=history,
+                insufficient_context=False
+            )
+            return ChatResponse(
+                conversation_id=conversation_id,
+                answer=answer,
+                citations=[],
+                metadata={
+                    "route": "DIRECT_GREETING",
+                    "retrieval_attempts": 0,
+                    "candidates_retrieved": 0,
+                    "top_chunks_used": 0,
+                    "latency_seconds": round(time.time() - start_time, 4)
+                }
+            )
+
         # Step 1: Query Routing
         route = query_router.route(query=query, conversation_history=history)
 

@@ -56,6 +56,34 @@ class ReciprocalRankFusion:
 class HybridSearchService:
     def __init__(self):
         self.rrf = ReciprocalRankFusion()
+        self._bm25_cache: Dict[str, BM25Index] = {}
+
+    def _get_cache_key(self, user_id: uuid.UUID, kb_id: uuid.UUID) -> str:
+        return f"{user_id}:{kb_id}"
+
+    def invalidate_cache(self, kb_id: Optional[uuid.UUID] = None) -> None:
+        """Invalidates BM25 cache for a specific KB or all KBs."""
+        if kb_id:
+            kb_str = str(kb_id)
+            keys_to_del = [k for k in self._bm25_cache.keys() if kb_str in k]
+            for k in keys_to_del:
+                self._bm25_cache.pop(k, None)
+            logger.info(f"Invalidated BM25 cache for KB {kb_id}")
+        else:
+            self._bm25_cache.clear()
+            logger.info("Cleared entire BM25 cache.")
+
+    def _get_or_build_sparse_index(self, user_id: uuid.UUID, kb_id: uuid.UUID) -> BM25Index:
+        cache_key = self._get_cache_key(user_id, kb_id)
+        if cache_key in self._bm25_cache:
+            return self._bm25_cache[cache_key]
+
+        kb_chunks = self._get_kb_chunks(user_id=user_id, kb_id=kb_id)
+        sparse_index = BM25Index()
+        sparse_index.index(kb_chunks)
+        self._bm25_cache[cache_key] = sparse_index
+        logger.info(f"Built and cached BM25 index for KB {kb_id} ({len(kb_chunks)} chunks).")
+        return sparse_index
 
     def _get_kb_chunks(self, user_id: uuid.UUID, kb_id: uuid.UUID) -> List[ChunkMetadata]:
         """Scrolls/fetches all chunks for a specific knowledge base to populate BM25 sparse index."""
@@ -121,10 +149,8 @@ class HybridSearchService:
             top_k=dense_top_k
         )
 
-        # 2. Execute Sparse Lexical Retrieval
-        kb_chunks = self._get_kb_chunks(user_id=user_id, kb_id=kb_id)
-        sparse_index = BM25Index()
-        sparse_index.index(kb_chunks)
+        # 2. Execute Cached Sparse Lexical Retrieval (0ms cache hit)
+        sparse_index = self._get_or_build_sparse_index(user_id=user_id, kb_id=kb_id)
         sparse_results = sparse_index.search(query=query, top_k=sparse_top_k)
 
         # 3. Reciprocal Rank Fusion

@@ -42,12 +42,12 @@ class Settings(BaseSettings):
     # Groq LLM API (Multi-Key Pool)
     GROQ_API_KEY: str = ""
     GROQ_API_KEYS: Union[str, List[str]] = []
-    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_MODEL: str = "openai/gpt-oss-20b"
     GROQ_FAST_MODEL: str = "openai/gpt-oss-20b"
     GROQ_THINK_MODEL: str = "openai/gpt-oss-120b"
     GROQ_ROUTER_MODEL: str = "groq/compound-mini"
     GROQ_TEMPERATURE: float = 0.1
-    GROQ_MAX_TOKENS: int = 2048
+    GROQ_MAX_TOKENS: int = 1024
 
     # Embeddings
     EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
@@ -67,10 +67,10 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 150
 
     # Retrieval & Hybrid Search
-    DENSE_TOP_K: int = 20
-    SPARSE_TOP_K: int = 20
-    FUSED_TOP_K: int = 20
-    RERANK_TOP_K: int = 8
+    DENSE_TOP_K: int = 10
+    SPARSE_TOP_K: int = 10
+    FUSED_TOP_K: int = 10
+    RERANK_TOP_K: int = 5
 
     # Reranker Model
     RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"

@@ -21,18 +21,29 @@ Instructions:
 
 class AnswerGenerator:
     @staticmethod
-    def build_context(chunks: List[ScoredChunk]) -> Tuple[str, List[Citation]]:
+    def build_context(chunks: List[ScoredChunk], max_total_chars: int = 4500) -> Tuple[str, List[Citation]]:
         if not chunks:
             return "No document context available.", []
 
         context_lines = []
         citations: List[Citation] = []
+        current_chars = 0
 
-        for idx, chunk in enumerate(chunks, start=1):
+        # Use top 5 chunks max and enforce strict character ceiling
+        for idx, chunk in enumerate(chunks[:5], start=1):
+            chunk_text = chunk.text.strip()
+            if current_chars + len(chunk_text) > max_total_chars and context_lines:
+                # Include truncated portion if space remains
+                remaining = max_total_chars - current_chars
+                if remaining > 100:
+                    chunk_text = chunk_text[:remaining] + "..."
+                else:
+                    break
+
             source_tag = f"[Source {idx}]"
             context_lines.append(
                 f"{source_tag} File: '{chunk.filename}' (Page {chunk.page_number}, Chunk: {chunk.chunk_id})\n"
-                f"{chunk.text}\n"
+                f"{chunk_text}\n"
             )
             citations.append(
                 Citation(
@@ -40,9 +51,10 @@ class AnswerGenerator:
                     document_name=chunk.filename,
                     page_number=chunk.page_number,
                     chunk_id=chunk.chunk_id,
-                    snippet=chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text
+                    snippet=chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text
                 )
             )
+            current_chars += len(chunk_text)
 
         return "\n".join(context_lines), citations
 
@@ -57,11 +69,17 @@ class AnswerGenerator:
         citations: List[Citation] = []
         history_messages = []
 
+        # Keep only the last 4 messages to save context budget
         if conversation_history:
-            for msg in conversation_history[-settings.MAX_HISTORY_MESSAGES:]:
+            recent_history = conversation_history[-4:]
+            for msg in recent_history:
+                content = msg.get("content", "")
+                # Truncate very long previous messages in history to save tokens
+                if len(content) > 500:
+                    content = content[:500] + "..."
                 history_messages.append({
                     "role": msg.get("role", "user"),
-                    "content": msg.get("content", "")
+                    "content": content
                 })
 
         if chunks and not insufficient_context:

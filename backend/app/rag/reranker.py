@@ -29,13 +29,19 @@ class CrossEncoderReranker:
         if not chunks:
             return []
 
+        # Fast-path: If 2 or fewer chunks, no need to run heavy transformer inference
+        if len(chunks) <= 2:
+            return chunks[:top_k]
+
         try:
             model = self._get_model()
-            pairs = [[query, chunk.text] for chunk in chunks]
-            scores = model.predict(pairs)
+            # Only rerank top candidate pool (max 8) to keep CPU latency low (<150ms)
+            candidate_pool = chunks[:8]
+            pairs = [[query, chunk.text] for chunk in candidate_pool]
+            scores = model.predict(pairs, batch_size=8, show_progress_bar=False)
 
             scored_chunks: List[Tuple[float, ScoredChunk]] = []
-            for score, chunk in zip(scores, chunks):
+            for score, chunk in zip(scores, candidate_pool):
                 reranked_chunk = ScoredChunk(
                     chunk_id=chunk.chunk_id,
                     document_id=chunk.document_id,
@@ -53,12 +59,20 @@ class CrossEncoderReranker:
             scored_chunks.sort(key=lambda x: x[0], reverse=True)
             top_results = [chunk for _, chunk in scored_chunks[:top_k]]
 
-            logger.info(f"Reranked {len(chunks)} candidates down to {len(top_results)} top passages.")
+            logger.info(f"Reranked {len(candidate_pool)} candidates down to {len(top_results)} top passages.")
             return top_results
 
         except Exception as e:
             logger.error(f"Cross-Encoder reranking error: {str(e)}. Returning original candidates.")
             return chunks[:top_k]
+
+    def warmup(self) -> None:
+        try:
+            model = self._get_model()
+            model.predict([["warmup query", "warmup document text"]], show_progress_bar=False)
+            logger.info("Cross-Encoder reranker warmed up successfully.")
+        except Exception as e:
+            logger.warning(f"Cross-Encoder warmup warning: {str(e)}")
 
 
 reranker = CrossEncoderReranker()

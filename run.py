@@ -13,9 +13,10 @@ def main():
     print("=" * 65)
     print(f"🚀 Launching {settings.APP_NAME}")
     print("=" * 65)
-    print(f"📍 Frontend Web UI  : http://localhost:{settings.BACKEND_PORT}")
-    print(f"📍 API Docs (Swagger): http://localhost:{settings.BACKEND_PORT}/api/v1/docs")
-    print(f"📍 Health Endpoint   : http://localhost:{settings.BACKEND_PORT}/health")
+    print(f"🌐 Frontend Web UI       : http://localhost:{settings.BACKEND_PORT}")
+    print(f"📄 Swagger API Docs     : http://localhost:{settings.BACKEND_PORT}/api/v1/docs")
+    print(f"🩺 Health Check Endpoint : http://localhost:{settings.BACKEND_PORT}/health")
+    print(f"📊 Streamlit UI (Option) : http://localhost:{settings.FRONTEND_PORT} (run: streamlit run frontend/app.py)")
     print("=" * 65)
     print("Press CTRL+C to stop the server.\n")
 

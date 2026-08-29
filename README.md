@@ -394,7 +394,7 @@ Ensure you have the following installed on your machine:
 
 ### 2. Clone the Repository
 ```bash
-git clone https://github.com/Keval1316/Advanced-RAG-Chatbot.git
+git clone https://github.com/your-username/Advanced-RAG-Chatbot.git
 cd "Advanced RAG Chatbot"
 ```
 
@@ -659,5 +659,5 @@ Dense vector embeddings excel at capturing conceptual meaning and synonyms, but 
 Distributed under the **MIT License**. Contributions, bug reports, and feature requests are welcome via GitHub Issues and Pull Requests.
 
 <div align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/Keval1316">Keval Chudasama</a> • Star ⭐ the repository if you found this helpful!</sub>
+  <sub>Built with ❤️ • Star ⭐ the repository if you found this helpful!</sub>
 </div>
