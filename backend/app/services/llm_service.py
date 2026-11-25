@@ -207,10 +207,18 @@ class LLMService:
                 except Exception as e:
                     err_str = str(e)
                     last_err = e
-                    # If request exceeded token budget, retry with compacted messages and lower max_tokens
-                    if "reduce the length" in err_str or "400" in err_str:
+                    err_lower = err_str.lower()
+                    is_budget_err = any(tok in err_lower for tok in ("reduce the length", "too large", "rate_limit", "tokens", "400", "413"))
+                    # If request exceeded token budget, retry with compacted system/user messages and lower max_tokens
+                    if is_budget_err:
                         try:
-                            compact_messages = [formatted_messages[0], formatted_messages[-1]]
+                            sys_msg = formatted_messages[0]["content"]
+                            if len(sys_msg) > 4000:
+                                sys_msg = sys_msg[:4000] + "\n...[context truncated to fit token limit]"
+                            last_user_msg = dict(formatted_messages[-1])
+                            if len(last_user_msg.get("content", "")) > 2000:
+                                last_user_msg["content"] = last_user_msg["content"][:2000] + "..."
+                            compact_messages = [{"role": "system", "content": sys_msg}, last_user_msg]
                             completion = client.chat.completions.create(
                                 model=candidate_model,
                                 messages=compact_messages,
@@ -221,6 +229,8 @@ class LLMService:
                             cleaned = clean_thinking_process(raw_content)
                             if cleaned:
                                 return cleaned
+                            if raw_content.strip():
+                                return raw_content.strip()
                         except Exception:
                             pass
                     logger.warning(f"Groq chat generation failed with model '{candidate_model}': {err_str}. Retrying next...")

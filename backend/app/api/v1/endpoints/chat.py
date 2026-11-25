@@ -179,9 +179,20 @@ async def generate_direct(payload: dict):
     temperature = payload.get("temperature", 0.1)
     max_tokens = payload.get("max_tokens", 2048)
 
+    # Extract any system message sent by the client so generate_chat
+    # doesn't prepend a second system role (Groq rejects duplicate system msgs).
+    system_prompt = None
+    chat_messages = []
+    for msg in messages:
+        if msg.get("role") == "system":
+            system_prompt = msg.get("content", "")
+        else:
+            chat_messages.append(msg)
+
     try:
         content = llm_service.generate_chat(
-            messages=messages,
+            messages=chat_messages,
+            system_prompt=system_prompt,
             model=model,
             temperature=temperature,
             max_tokens=max_tokens

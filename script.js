@@ -293,7 +293,7 @@
     submitLoginBtn.innerHTML = '<span>Authenticating...</span>';
 
     try {
-      const res = await fetch('http://localhost:8000/api/v1/auth/login', {
+      const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username_or_email: identifier, password: password })
@@ -357,7 +357,7 @@
     submitRegisterBtn.innerHTML = '<span>Creating Account...</span>';
 
     try {
-      const res = await fetch('http://localhost:8000/api/v1/auth/register', {
+      const res = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ full_name: fullName, username: username, email: email, password: password })
@@ -1229,10 +1229,72 @@
   }
 
   /**
-   * Real LLM & Document Query Execution using Groq Llama 3.3 70B:
-   * 1. Checks chat's documents for relevant context.
+   * Select the most relevant chunks from attached documents within a safe token/char budget
+   * so large files (e.g. dsa_que_list.md) never overflow Groq's 8000 TPM limit.
+   */
+  function buildRelevantDocumentContext(query, docs, maxTotalChars = 7000) {
+    const cleanQ = (query || '').trim().toLowerCase();
+    const isSimpleGreeting = /^(hi|hey|hello|heyy|hii|yo|sup|good morning|good afternoon|good evening|thanks|thank you)[!?. ]*$/i.test(cleanQ);
+
+    if (isSimpleGreeting) {
+      // Keep only a lightweight document list + brief preview so greetings never hit TPM limits
+      const summaryLines = docs.map((d, idx) => {
+        const preview = (d.text || '').slice(0, 350).trim();
+        return `=== DOCUMENT ${idx + 1}: ${d.name} ===\n${preview}${d.text && d.text.length > 350 ? '\n...[truncated]' : ''}\n=== END DOCUMENT ===`;
+      });
+      return summaryLines.join('\n\n').slice(0, 2000);
+    }
+
+    const totalLen = docs.reduce((sum, d) => sum + ((d.text || d.name || '').length), 0);
+    if (totalLen <= maxTotalChars) {
+      return docs.map((d, idx) =>
+        `=== DOCUMENT ${idx + 1}: ${d.name} ===\n${d.text || d.name}\n=== END DOCUMENT ===`
+      ).join('\n\n');
+    }
+
+    // Chunk & score by keyword overlap for large documents
+    const stopWords = new Set(['the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'for', 'with', 'this', 'that', 'solve', 'que', 'question', 'explain', 'find', 'give', 'what', 'how']);
+    const queryTerms = cleanQ.split(/[^a-z0-9_]+/).filter((t) => t.length >= 2 && !stopWords.has(t));
+
+    const chunkSize = 1000;
+    const overlap = 150;
+    const allChunks = [];
+
+    docs.forEach((d) => {
+      const text = d.text || d.name || '';
+      if (!text) return;
+      for (let start = 0, idx = 0; start < text.length; start += (chunkSize - overlap), idx++) {
+        const slice = text.slice(start, start + chunkSize);
+        const lowerSlice = slice.toLowerCase();
+        let score = 0;
+        queryTerms.forEach((term) => {
+          if (lowerSlice.includes(term)) score += 2;
+        });
+        // Small boost for earlier chunks when scores tie
+        score += Math.max(0, 0.5 - idx * 0.01);
+        allChunks.push({ docName: d.name, idx, text: slice, score });
+      }
+    });
+
+    allChunks.sort((a, b) => b.score - a.score);
+
+    const picked = [];
+    let used = 0;
+    for (const ch of allChunks) {
+      const block = `=== DOCUMENT: ${ch.docName} (Excerpt ${ch.idx + 1}) ===\n${ch.text}\n=== END EXCERPT ===`;
+      if (used + block.length > maxTotalChars && picked.length > 0) break;
+      picked.push(block);
+      used += block.length + 2;
+    }
+
+    return picked.join('\n\n');
+  }
+
+  /**
+   * Real LLM & Document Query Execution using Groq:
+   * 1. Checks chat's documents for relevant context (budgeted to fit Groq TPM limits).
    * 2. Builds system prompt and conversation history.
-   * 3. Calls Groq API directly (or FastAPI backend) for authentic, fluent responses!
+   * 3. Calls FastAPI backend proxy (or direct Groq API if custom key provided).
    */
   async function executeRealLLMQuery(query, conv, newFile) {
     const docs = conv.documents || [];
@@ -1261,21 +1323,21 @@
         { title: `Synthesizing answer with ${modeLabel}...`, duration: 400 }
       ]);
 
-      // Build context from chat documents
-      let contextBlocks = [];
-      docs.forEach((d, idx) => {
-        contextBlocks.push(`=== DOCUMENT ${idx + 1}: ${d.name} ===\n${d.text || d.name}\n=== END DOCUMENT ===`);
+      docs.forEach((d) => {
         citations.push({ name: d.name, page: 1 });
       });
 
+      const relevantContext = buildRelevantDocumentContext(query, docs, 7000);
+
       systemPrompt = `You are Nexus AI, a helpful and expert Enterprise AI Knowledge Assistant.
 Below is the knowledge base document context:
-${contextBlocks.join('\n\n')}
+${relevantContext}
 
 Instructions:
 1. Provide a comprehensive, accurate, and direct response to the user's question based on the document context.
-2. If the user asks for code, summaries, or solutions, provide clear explanations and properly formatted code blocks.
-3. Output ONLY your direct, polished response in Markdown. Do not include internal monologue, scratchpads, self-dialogue, or thinking steps.`;
+2. If the user is just greeting you (e.g. "hey", "hello"), greet them warmly and mention the uploaded document(s) you can help with.
+3. If the user asks for code, summaries, or solutions, provide clear explanations and properly formatted code blocks.
+4. Output ONLY your direct, polished response in Markdown. Do not include internal monologue, scratchpads, self-dialogue, or thinking steps.`;
     } else {
       // Direct General LLM Query
       const modeLabel = isThinkMode ? 'Deep Think Reasoning' : 'Instant Fast Reasoning';
@@ -1290,18 +1352,22 @@ Instructions:
 3. Output ONLY the direct answer. Never output internal monologue, scratchpads, analysis steps, or self-dialogue.`;
     }
 
-    // Build recent conversation history based on Memory Window setting
+    // Build recent conversation history based on Memory Window setting (capped for TPM safety)
     messagesPayload.push({ role: 'system', content: systemPrompt });
 
-    const memWindow = userSettings.memoryWindow || 10;
+    const memWindow = Math.min(userSettings.memoryWindow || 6, 8);
     if (conv.messages && conv.messages.length > 0) {
-      const recent = conv.messages.slice(-memWindow);
+      const recent = conv.messages
+        .filter((m) => m.content && !m.content.startsWith('I could not generate a response.'))
+        .slice(-memWindow);
       recent.forEach((m) => {
-        messagesPayload.push({ role: m.role, content: m.content });
+        const content = m.content.length > 1200 ? m.content.slice(0, 1200) + '...' : m.content;
+        messagesPayload.push({ role: m.role, content });
       });
     }
 
     let answerText = null;
+    let backendError = null;
 
     // 1. Primary Strategy: Call FastAPI Backend LLM Proxy (resilient, multi-key failover pool from .env)
     try {
@@ -1319,10 +1385,15 @@ Instructions:
         const backendData = await backendRes.json();
         if (backendData.success && backendData.content) {
           answerText = backendData.content;
+        } else if (backendData.error) {
+          backendError = backendData.error;
         }
+      } else {
+        backendError = `Server returned HTTP ${backendRes.status}`;
       }
     } catch (err) {
       console.warn('Backend proxy generation failed, attempting direct fallback', err);
+      backendError = err.message;
     }
 
     // 2. Secondary Strategy: If client provided custom key in settings or backend is unreachable, try direct Groq API
@@ -1359,10 +1430,13 @@ Instructions:
 
     // Clean thinking artifacts and reasoning scratchpad
     const cleanedAnswer = cleanThinkingProcess(answerText);
+    const fallbackErrorMsg = backendError
+      ? `I could not generate a response (${backendError}). Please try again.`
+      : 'I could not generate a response. Please verify your server connection.';
 
     return {
       role: 'assistant',
-      content: cleanedAnswer || answerText || 'I could not generate a response. Please verify your server connection.',
+      content: cleanedAnswer || answerText || fallbackErrorMsg,
       citations: hasDocs ? citations : []
     };
   }

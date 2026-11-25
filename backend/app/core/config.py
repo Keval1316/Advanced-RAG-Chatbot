@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "openai/gpt-oss-20b"
     GROQ_FAST_MODEL: str = "openai/gpt-oss-20b"
     GROQ_THINK_MODEL: str = "openai/gpt-oss-120b"
-    GROQ_ROUTER_MODEL: str = "groq/compound-mini"
+    GROQ_ROUTER_MODEL: str = "openai/gpt-oss-20b"
     GROQ_TEMPERATURE: float = 0.1
     GROQ_MAX_TOKENS: int = 1024
 
