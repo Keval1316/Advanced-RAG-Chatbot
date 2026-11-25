@@ -9,9 +9,7 @@ from backend.app.core.exceptions import LLMServiceException
 FALLBACK_MODELS = [
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
-    "groq/compound-mini",
-    "groq/compound",
-    "qwen/qwen3.6-27b"
+    "qwen/qwen3.8-27b"
 ]
 
 DEFAULT_KEYS: List[str] = []
